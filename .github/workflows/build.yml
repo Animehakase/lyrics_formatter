@@ -1,15 +1,21 @@
 name: Build EXE
-
+env:
+  APP_NAME: "歌詞改行ツール"
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
+
+      - name: バージョン取得
+        shell: powershell
+        run: |
+          echo "VERSION=${env:GITHUB_REF_NAME}" >> $env:GITHUB_ENV
       - name: ソース取得
         uses: actions/checkout@v4
 
@@ -23,10 +29,26 @@ jobs:
 
       - name: EXE作成
         run: |
-          pyinstaller --onefile --windowed --icon icon.ico lyrics_formatter.py
+          pyinstaller --onefile --windowed --name "歌詞改行ツール" --icon icon.ico lyrics_formatter.py
 
-      - name: EXE保存
+      - name: 配布フォルダ作成
+        shell: powershell
+        run: |
+          mkdir "release\歌詞改行ツール_$env:VERSION"
+
+          copy "dist\歌詞改行ツール.exe" "release\歌詞改行ツール_$env:VERSION"
+          copy icon.ico "release\歌詞改行ツール_$env:VERSION"
+          copy "Read me.txt" "release\歌詞改行ツール_$env:VERSION"
+
+      - name: ZIP作成
+        shell: powershell
+        run: |
+          Compress-Archive `
+            -Path "release\歌詞改行ツール_$env:VERSION" `
+            -DestinationPath "release\歌詞改行ツール_$env:VERSION.zip"
+
+      - name: ZIP保存
         uses: actions/upload-artifact@v4
         with:
-          name: lyrics_formatter
-          path: dist/*.exe
+          name: 歌詞改行ツール_${{ env.VERSION }}
+          path: release/*.zip
