@@ -1,5 +1,8 @@
 {
   "threshold": "00:02:05",
   "line_count": "2",
-  "window_geometry": "498x873+-1078+-75"
+  "window_geometry": "1093x734+-1274+-35",
+  "inspector_geometry": "220x400+1128+191",
+  "ignore_first_tag_error": true,
+  "sort_by_first_tag": true
 }
