@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: ソース取得
         uses: actions/checkout@v4
-        
+
       - name: バージョン取得
         shell: powershell
         run: |
@@ -35,18 +35,22 @@ jobs:
       - name: 配布フォルダ作成
         shell: powershell
         run: |
-          mkdir "release\歌詞改行ツール_$env:VERSION"
+          $folder = "release\$env:APP_NAME`_$env:VERSION"
 
-          copy "dist\歌詞改行ツール.exe" "release\歌詞改行ツール_$env:VERSION"
-          copy icon.ico "release\歌詞改行ツール_$env:VERSION"
-          copy "Read me.txt" "release\歌詞改行ツール_$env:VERSION"
+          New-Item -ItemType Directory -Force $folder
+
+          Copy-Item "dist\$env:APP_NAME.exe" $folder
+          Copy-Item "icon.ico" $folder
+          Copy-Item "Read me.txt" $folder
 
       - name: ZIP作成
         shell: powershell
         run: |
+          $folder = "release\$env:APP_NAME`_$env:VERSION"
+
           Compress-Archive `
-            -Path "release\歌詞改行ツール_$env:VERSION" `
-            -DestinationPath "release\歌詞改行ツール_$env:VERSION.zip"
+            -Path $folder `
+            -DestinationPath "release\$env:APP_NAME`_$env:VERSION.zip"
 
       - name: ZIP保存
         uses: actions/upload-artifact@v4
