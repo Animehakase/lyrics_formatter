@@ -1,1 +1,32 @@
 name: Build EXE
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: ソース取得
+        uses: actions/checkout@v4
+
+      - name: Pythonセットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: PyInstallerインストール
+        run: pip install pyinstaller
+
+      - name: EXE作成
+        run: |
+          pyinstaller --onefile --windowed --icon icon.ico lyrics_formatter.py
+
+      - name: EXE保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: lyrics_formatter
+          path: dist/*.exe
