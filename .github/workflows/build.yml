@@ -11,13 +11,14 @@ jobs:
     runs-on: windows-latest
 
     steps:
-
+      - name: ソース取得
+        uses: actions/checkout@v4
+        
       - name: バージョン取得
         shell: powershell
         run: |
           echo "VERSION=${env:GITHUB_REF_NAME}" >> $env:GITHUB_ENV
-      - name: ソース取得
-        uses: actions/checkout@v4
+
 
       - name: Pythonセットアップ
         uses: actions/setup-python@v5
