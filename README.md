@@ -116,7 +116,7 @@ Twitter
 
 ---
 
-# 関連ツール
+# 前提ツール
 
 ## RhythmicaLyrics
 
