@@ -1272,13 +1272,13 @@ class LyricsFormatter:
         # 空行
         #
 
-        self.refresh_inspector(
+        self.refresh_blank_lines(
             text,
-            selected_lines
+            lines
         )
 
         #
-        # 選択行取得
+        # 選択中の行取得
         #
 
         selected_lines = set()
@@ -1312,13 +1312,13 @@ class LyricsFormatter:
                     n
                 )
 
-
         #
         # 検査結果
         #
 
         self.refresh_inspector(
-            text
+            text,
+            selected_lines
         )
 
         #
@@ -1329,24 +1329,6 @@ class LyricsFormatter:
             line_numbers,
             lines
         )
-
-        #
-        # 選択中の行は検査ハイライトを消す
-        #
-
-        for line in selected_lines:
-
-            text.tag_remove(
-                "inspect_line",
-                f"{line}.0",
-                f"{line}.end+1c"
-            )
-
-            text.tag_remove(
-                "time_tag_error",
-                f"{line}.0",
-                f"{line}.end+1c"
-            )
 
         #
         # タグ優先順位
@@ -1376,11 +1358,15 @@ class LyricsFormatter:
             tk.SEL
         )
 
-        self.sync_numbers(
-        text,
-        line_numbers
-    )
+        #
+        # 行番号同期
+        #
 
+        self.sync_numbers(
+            text,
+            line_numbers
+        )
+        
     def line_number_press(
         self,
         event,
