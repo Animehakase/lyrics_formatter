@@ -31,8 +31,12 @@ jobs:
         run: pip install pyinstaller
 
       - name: EXE作成
+        shell: powershell
         run: |
-          pyinstaller --onefile --windowed --name "歌詞改行ツール" --icon icon.ico lyrics_formatter.py
+          pyinstaller --onefile --windowed `
+            --name "$env:APP_NAME" `
+            --icon icon.ico `
+            lyrics_formatter.py
 
       - name: 配布フォルダ作成
         shell: powershell
@@ -61,17 +65,17 @@ jobs:
       - name: ZIP作成
         shell: powershell
         run: |
-          $folder = "release\歌詞改行ツール_$env:VERSION"
+          $folder = "release\$env:APP_NAME`_$env:VERSION"
 
           Compress-Archive `
-            -Path "release\歌詞改行ツール_$env:VERSION\*" `
-            -DestinationPath "release\歌詞改行ツール_$env:VERSION.zip"
+            -Path "$folder\*" `
+            -DestinationPath "release\$env:APP_NAME`_$env:VERSION.zip"
 
       - name: テスト版をArtifactsに保存
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
-          name: 歌詞改行ツール_Dev_${{ env.DEV_DATE }}
+          name: ${{ env.APP_NAME }}_Dev_${{ env.DEV_DATE }}
           path: release/*.zip
 
       - name: Release作成
@@ -79,6 +83,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release/*.zip
-          name: 歌詞改行ツール ${{ env.VERSION }}
+          name: ${{ env.APP_NAME }} ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
           generate_release_notes: true
