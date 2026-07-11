@@ -21,6 +21,18 @@ jobs:
         run: |
           echo "VERSION=${env:GITHUB_REF_NAME}" >> $env:GITHUB_ENV
 
+      - name: 開発版情報を作成
+        if: github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          $jst = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId(
+            (Get-Date),
+            "Tokyo Standard Time"
+          )
+
+          $date = $jst.ToString("yyyyMMdd_HHmm")
+
+          "DEV_DATE=$date" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Pythonセットアップ
         uses: actions/setup-python@v5
@@ -41,7 +53,12 @@ jobs:
       - name: 配布フォルダ作成
         shell: powershell
         run: |
-          $folder = "release\$env:APP_NAME`_$env:VERSION"
+          if ($env:GITHUB_REF -eq "refs/heads/main") {
+            $folder = "release\$env:APP_NAME`_Dev_$env:DEV_DATE"
+          }
+          else {
+            $folder = "release\$env:APP_NAME`_$env:VERSION"
+          }
 
           New-Item -ItemType Directory -Force $folder
 
@@ -49,34 +66,24 @@ jobs:
           Copy-Item "icon.ico" $folder
           Copy-Item "Read me.txt" $folder
 
-      - name: 開発版情報を作成
-        if: github.ref == 'refs/heads/main'
-        shell: pwsh
-        run: |
-          $jst = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId(
-            (Get-Date),
-            "Tokyo Standard Time"
-          )
-
-          $date = $jst.ToString("yyyyMMdd_HHmm")
-
-          "DEV_DATE=$date" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "RELEASE_FOLDER=$folder" >> $env:GITHUB_ENV
 
       - name: ZIP作成
+        if: startsWith(github.ref, 'refs/tags/')
         shell: powershell
         run: |
-          $folder = "release\$env:APP_NAME`_$env:VERSION"
+          $folder = $env:RELEASE_FOLDER
 
           Compress-Archive `
             -Path "$folder\*" `
-            -DestinationPath "release\$env:APP_NAME`_$env:VERSION.zip"
+            -DestinationPath "$folder.zip"
 
       - name: テスト版をArtifactsに保存
         if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_NAME }}_Dev_${{ env.DEV_DATE }}
-          path: release/*.zip
+          path: release/*
 
       - name: Release作成
         if: startsWith(github.ref, 'refs/tags/')
