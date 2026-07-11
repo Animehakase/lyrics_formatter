@@ -1201,6 +1201,13 @@ class LyricsFormatter:
                     continue
 
                 #
+                # 選択中の行は検査ハイライトしない
+                #
+
+                if i in selected_lines:
+                    continue
+
+                #
                 # 行全体
                 #
 
@@ -1228,6 +1235,23 @@ class LyricsFormatter:
             "1.0",
             "\n".join(nums)
         )
+
+        #
+        # 選択範囲
+        #
+
+        selected_lines = set()
+
+        if text.tag_ranges(tk.SEL):
+
+            start = text.index(tk.SEL_FIRST)
+            end = text.index(tk.SEL_LAST)
+
+            first = int(start.split(".")[0])
+            last = int(end.split(".")[0])
+
+            for n in range(first, last + 1):
+                selected_lines.add(n)
 
         #
         # 行番号ハイライト
