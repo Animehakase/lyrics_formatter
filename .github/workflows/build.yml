@@ -1,4 +1,4 @@
-name: Build EXE
+﻿name: Build EXE
 env:
   APP_NAME: "歌詞改行ツール"
 on:
