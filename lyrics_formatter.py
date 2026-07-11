@@ -2661,28 +2661,87 @@ class TimeTagInspector:
         if not self.errors:
             return
 
-        error = self.errors[self.current_index]
+        error = self.errors[
+            self.current_index
+        ]
 
         text = self.app.output_text
+
+        #
+        # ジャンプ位置
+        #
+
+        index = (
+            f"{error['line']}.0+"
+            f"{error['start']}c"
+        )
+
+        length = (
+            error["end"]
+            -
+            error["start"]
+        )
+
+        #
+        # 選択
+        #
+
+        text.tag_remove(
+            tk.SEL,
+            "1.0",
+            "end"
+        )
+
+        text.tag_add(
+            tk.SEL,
+            index,
+            f"{index}+{length}c"
+        )
 
         #
         # カーソル
         #
 
         text.mark_set(
-            "insert",
-            f"{error['line']}.0+{error['start']}c"
-        )
-
-        #
-        # スクロール
-        #
-
-        text.see(
-            f"{error['line']}.0"
+            tk.INSERT,
+            index
         )
 
         text.focus_set()
+
+        #
+        # 縦スクロール
+        #
+
+        text.see(index)
+
+        #
+        # 横スクロール
+        # タイムタグが左から1/3付近に来るようにする
+        #
+
+        line = text.get(
+            f"{error['line']}.0",
+            f"{error['line']}.end"
+        )
+
+        char_count = len(line)
+
+        if char_count > 0:
+
+            target = max(
+                0,
+                error["start"] - 20
+            )
+
+            fraction = target / char_count
+
+            if fraction > 1:
+                fraction = 1
+
+            text.xview_moveto(
+                fraction
+            )
 
         #
         # Listbox同期
