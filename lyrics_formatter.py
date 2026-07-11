@@ -869,6 +869,18 @@ class LyricsFormatter:
             takefocus=0
         )
 
+        line_numbers.bind(
+            "<Button-1>",
+            lambda e, t=text, n=line_numbers:
+                self.line_number_press(e, t, n)
+        )
+
+        line_numbers.bind(
+            "<B1-Motion>",
+            lambda e, t=text, n=line_numbers:
+                self.line_number_drag(e, t, n)
+        )
+
         text = tk.Text(
             outer,
             wrap="none",
@@ -978,6 +990,15 @@ class LyricsFormatter:
         text.tag_raise("inspect_line")
         text.tag_raise("time_tag")
         text.tag_raise("time_tag_error")
+
+
+            #
+            # 選択を最前面
+            #
+
+        text.tag_raise(
+            tk.SEL
+        )
         
         text.bind(
             "<KeyRelease>",
@@ -1247,7 +1268,57 @@ class LyricsFormatter:
             text,
             line_numbers
         )
-    
+
+    def line_number_press(
+        self,
+        event,
+        text,
+        line_numbers
+    ):
+
+        #
+        # クリックした行番号
+        #
+
+        index = line_numbers.index(
+            f"@0,{event.y}"
+        )
+
+        self.line_select_start = int(
+            index.split(".")[0]
+        )
+
+        self.select_line_range(
+            text,
+            self.line_select_start,
+            self.line_select_start
+        )
+
+        return "break"
+
+    def line_number_drag(
+        self,
+        event,
+        text,
+        line_numbers
+    ):
+
+        index = line_numbers.index(
+            f"@0,{event.y}"
+        )
+
+        current = int(
+            index.split(".")[0]
+        )
+
+        self.select_line_range(
+            text,
+            self.line_select_start,
+            current
+        )
+
+        return "break"
+
     def time_to_cs(
         self,
         mm,
@@ -2078,6 +2149,58 @@ class LyricsFormatter:
 
         return
 
+    def select_line_range(
+        self,
+        text,
+        start_line,
+        end_line
+    ):
+
+        #
+        # 順番補正
+        #
+
+        if start_line > end_line:
+
+            start_line, end_line = (
+                end_line,
+                start_line
+            )
+
+        #
+        # 選択解除
+        #
+
+        text.tag_remove(
+            tk.SEL,
+            "1.0",
+            "end"
+        )
+
+        #
+        # 行選択
+        #
+
+        text.tag_add(
+            tk.SEL,
+            f"{start_line}.0",
+            f"{end_line + 1}.0"
+        )
+
+        #
+        # カーソル
+        #
+
+        text.mark_set(
+            tk.INSERT,
+            f"{start_line}.0"
+        )
+
+        text.see(
+            f"{start_line}.0"
+        )
+
+        text.focus_set()
 
 class TimeTagInspector:
 
