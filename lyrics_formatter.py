@@ -700,7 +700,7 @@ class LyricsFormatter:
             command=self.start_clipboard_monitor,
             width=10
         ).pack(
-            side="left",
+            side="right",
             padx=2
         )
 
@@ -710,7 +710,7 @@ class LyricsFormatter:
             command=self.inspector.show,
             width=10
         ).pack(
-            side="left",
+            side="right",
             padx=2
         )
         #
