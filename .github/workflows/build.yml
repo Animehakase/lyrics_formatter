@@ -49,17 +49,23 @@ jobs:
         if: github.ref == 'refs/heads/main'
         shell: pwsh
         run: |
-          $date = Get-Date -Format "yyyyMMdd_HHmm"
+          $jst = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId(
+            (Get-Date),
+            "Tokyo Standard Time"
+          )
+
+          $date = $jst.ToString("yyyyMMdd_HHmm")
+
           "DEV_DATE=$date" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: ZIP作成
         shell: powershell
         run: |
-          $folder = "release\$env:APP_NAME`_$env:VERSION"
+          $folder = "release\歌詞改行ツール_$env:VERSION"
 
           Compress-Archive `
-            -Path $folder `
-            -DestinationPath "release\$env:APP_NAME`_$env:VERSION.zip"
+            -Path "release\歌詞改行ツール_$env:VERSION\*" `
+            -DestinationPath "release\歌詞改行ツール_$env:VERSION.zip"
 
       - name: テスト版をArtifactsに保存
         if: github.ref == 'refs/heads/main'
