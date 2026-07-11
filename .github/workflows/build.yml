@@ -54,6 +54,12 @@ jobs:
             -Path $folder `
             -DestinationPath "release\$env:APP_NAME`_$env:VERSION.zip"
 
+      - name: テスト版をArtifactsに保存
+        uses: actions/upload-artifact@v4
+        with:
+          name: 歌詞改行ツール_${{ env.VERSION }}
+          path: release/*.zip
+
       - name: Release作成
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
