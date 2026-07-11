@@ -43,7 +43,7 @@ DEFAULT_INSPECTOR_SIZE = "220x400"
 # 検査設定
 #
 
-DEFAULT_IGNORE_FIRST_TAG_ERROR = False
+DEFAULT_IGNORE_FIRST_TAG_ERROR = True
 
 DEFAULT_SORT_BY_FIRST_TAG = True
 
@@ -866,14 +866,16 @@ class LyricsFormatter:
             state="disabled",
             bg="#e8e8e8",
             wrap="none",
-            takefocus=0
+            takefocus=0,
+            font=("Yu Gothic UI", 10)
         )
 
         text = tk.Text(
             outer,
             wrap="none",
             undo=True,
-            bg="#fcfcfc"
+            bg="#fcfcfc",
+            font=("Yu Gothic UI", 10)
         )
 
         line_numbers.bind(
@@ -982,19 +984,36 @@ class LyricsFormatter:
             foreground="#CC0000",
             font=("",9,"bold")
         )
+        text.config(
+            selectbackground="#3399FF",
+            selectforeground="white",
+            inactiveselectbackground="#3399FF"
+        )        
+
+
         #
-        # タグ優先順位
+        # タグ表示優先順位
         #
 
-        text.tag_raise("blank_line")
-        text.tag_raise("inspect_line")
-        text.tag_raise("time_tag")
-        text.tag_raise("time_tag_error")
+        text.tag_raise(
+            "blank_line"
+        )
 
+        text.tag_raise(
+            "inspect_line"
+        )
 
-            #
-            # 選択を最前面
-            #
+        text.tag_raise(
+            "time_tag"
+        )
+
+        text.tag_raise(
+            "time_tag_error"
+        )
+
+        #
+        # 選択を最前面
+        #
 
         text.tag_raise(
             tk.SEL
