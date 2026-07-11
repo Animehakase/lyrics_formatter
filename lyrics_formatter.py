@@ -1106,20 +1106,11 @@ class LyricsFormatter:
             text.yview()[0]
         )
 
-    def refresh_visuals(
+    def refresh_time_tags(
         self,
         text,
-        line_numbers
+        content
     ):
-
-        content = text.get(
-            "1.0",
-            "end-1c"
-        )
-
-        #
-        # タグ初期化
-        #
 
         text.tag_remove(
             "time_tag",
@@ -1127,11 +1118,46 @@ class LyricsFormatter:
             "end"
         )
 
+        for match in TIME_PATTERN.finditer(
+            content
+        ):
+
+            text.tag_add(
+                "time_tag",
+                f"1.0+{match.start()}c",
+                f"1.0+{match.end()}c"
+            )
+
+    def refresh_blank_lines(
+        self,
+        text,
+        lines
+    ):
+
         text.tag_remove(
             "blank_line",
             "1.0",
             "end"
         )
+
+        for i, line in enumerate(
+            lines,
+            start=1
+        ):
+
+            if not line.strip():
+
+                text.tag_add(
+                    "blank_line",
+                    f"{i}.0",
+                    f"{i}.end+1c"
+                )
+
+    def refresh_inspector(
+        self,
+        text,
+        selected_lines
+    ):
 
         text.tag_remove(
             "inspect_line",
@@ -1145,27 +1171,34 @@ class LyricsFormatter:
             "end"
         )
 
-        #
-        # 通常タイムタグ
-        #
+        for error in self.inspect_errors:
 
-        for match in TIME_PATTERN.finditer(
-            content
-        ):
+            line = error["line"]
+
+            #
+            # 選択中はハイライトしない
+            #
+
+            if line in selected_lines:
+                continue
 
             text.tag_add(
-
-                "time_tag",
-
-                f"1.0+{match.start()}c",
-
-                f"1.0+{match.end()}c"
-
+                "inspect_line",
+                f"{line}.0",
+                f"{line}.end+1c"
             )
 
-        #
-        # 行番号初期化
-        #
+            text.tag_add(
+                "time_tag_error",
+                f"{line}.0+{error['start']}c",
+                f"{line}.0+{error['end']}c"
+            )        
+
+    def refresh_line_numbers(
+        self,
+        line_numbers,
+        lines
+    ):
 
         line_numbers.config(
             state="normal"
@@ -1176,107 +1209,33 @@ class LyricsFormatter:
             "end"
         )
 
-        line_numbers.tag_config(
-            "inspect_line",
-            background="#FFE4B5"
-        )
-
-        #
-        # 行データ
-        #
-
-        lines = content.splitlines()
         nums = []
-        
-        #
-        # 各行描画
-        #
 
-        for i, line in enumerate(
-            lines,
-            start=1
+        for i in range(
+            1,
+            len(lines)+1
         ):
 
-            nums.append(str(i))
-
-            #
-            # 空行
-            #
-
-            if line.strip() == "":
-                text.tag_add(
-                    "blank_line",
-                    f"{i}.0",
-                    f"{i}.end+1c"
-                )
-
-            #
-            # 検査結果
-            #
-
-            for error in self.inspect_errors:
-
-                if error["line"] != i:
-                    continue
-
-                #
-                # 選択中の行は検査ハイライトしない
-                #
-
-                if i in selected_lines:
-                    continue
-
-                #
-                # 行全体
-                #
-
-                text.tag_add(
-                    "inspect_line",
-                    f"{i}.0",
-                    f"{i}.end+1c"
-                )
-
-                #
-                # タイムタグだけ
-                #
-
-                text.tag_add(
-                    "time_tag_error",
-                    f"{i}.0+{error['start']}c",
-                    f"{i}.0+{error['end']}c"
-                )
-
-        #
-        # 行番号
-        #
+            nums.append(
+                str(i)
+            )
 
         line_numbers.insert(
             "1.0",
             "\n".join(nums)
         )
 
-        #
-        # 選択範囲
-        #
+        line_numbers.tag_delete(
+            "inspect_line"
+        )
 
-        selected_lines = set()
-
-        if text.tag_ranges(tk.SEL):
-
-            start = text.index(tk.SEL_FIRST)
-            end = text.index(tk.SEL_LAST)
-
-            first = int(start.split(".")[0])
-            last = int(end.split(".")[0])
-
-            for n in range(first, last + 1):
-                selected_lines.add(n)
-
-        #
-        # 行番号ハイライト
-        #
+        line_numbers.tag_config(
+            "inspect_line",
+            background="#FFE4B5"
+        )
 
         for error in self.inspect_errors:
+
             line_numbers.tag_add(
                 "inspect_line",
                 f"{error['line']}.0",
@@ -1286,6 +1245,108 @@ class LyricsFormatter:
         line_numbers.config(
             state="disabled"
         )
+
+    def refresh_visuals(
+        self,
+        text,
+        line_numbers
+    ):
+
+        content = text.get(
+            "1.0",
+            "end-1c"
+        )
+
+        lines = content.splitlines()
+
+        #
+        # タイムタグ
+        #
+
+        self.refresh_time_tags(
+            text,
+            content
+        )
+
+        #
+        # 空行
+        #
+
+        self.refresh_inspector(
+            text,
+            selected_lines
+        )
+
+        #
+        # 選択行取得
+        #
+
+        selected_lines = set()
+
+        if text.tag_ranges(
+            tk.SEL
+        ):
+
+            start = text.index(
+                tk.SEL_FIRST
+            )
+
+            end = text.index(
+                tk.SEL_LAST
+            )
+
+            first = int(
+                start.split(".")[0]
+            )
+
+            last = int(
+                end.split(".")[0]
+            )
+
+            for n in range(
+                first,
+                last + 1
+            ):
+
+                selected_lines.add(
+                    n
+                )
+
+
+        #
+        # 検査結果
+        #
+
+        self.refresh_inspector(
+            text
+        )
+
+        #
+        # 行番号
+        #
+
+        self.refresh_line_numbers(
+            line_numbers,
+            lines
+        )
+
+        #
+        # 選択中の行は検査ハイライトを消す
+        #
+
+        for line in selected_lines:
+
+            text.tag_remove(
+                "inspect_line",
+                f"{line}.0",
+                f"{line}.end+1c"
+            )
+
+            text.tag_remove(
+                "time_tag_error",
+                f"{line}.0",
+                f"{line}.end+1c"
+            )
 
         #
         # タグ優先順位
@@ -1307,10 +1368,18 @@ class LyricsFormatter:
             "time_tag_error"
         )
 
-        self.sync_numbers(
-            text,
-            line_numbers
+        #
+        # 選択を最前面
+        #
+
+        text.tag_raise(
+            tk.SEL
         )
+
+        self.sync_numbers(
+        text,
+        line_numbers
+    )
 
     def line_number_press(
         self,
@@ -2680,41 +2749,12 @@ class TimeTagInspector:
         if not self.errors:
             return
 
-        error = self.errors[
-            self.current_index
-        ]
+        error = self.errors[self.current_index]
 
         text = self.app.output_text
 
-        #
-        # ジャンプ位置
-        #
-
         index = (
-            f"{error['line']}.0+"
-            f"{error['start']}c"
-        )
-
-        length = (
-            error["end"]
-            -
-            error["start"]
-        )
-
-        #
-        # 選択
-        #
-
-        text.tag_remove(
-            tk.SEL,
-            "1.0",
-            "end"
-        )
-
-        text.tag_add(
-            tk.SEL,
-            index,
-            f"{index}+{length}c"
+            f"{error['line']}.0+{error['start']}c"
         )
 
         #
@@ -2722,11 +2762,9 @@ class TimeTagInspector:
         #
 
         text.mark_set(
-            tk.INSERT,
+            "insert",
             index
         )
-
-        text.focus_set()
 
         #
         # 縦スクロール
@@ -2736,31 +2774,36 @@ class TimeTagInspector:
 
         #
         # 横スクロール
-        # タイムタグが左から1/3付近に来るようにする
         #
 
-        line = text.get(
-            f"{error['line']}.0",
-            f"{error['line']}.end"
-        )
+        try:
 
-        char_count = len(line)
+            #
+            # 現在の幅（文字数）
+            #
 
-        if char_count > 0:
-
-            target = max(
-                0,
-                error["start"] - 20
+            visible_chars = max(
+                20,
+                text.winfo_width() // 9
             )
 
-            fraction = target / char_count
+            #
+            # 左端を少し前にずらす
+            #
 
-            if fraction > 1:
-                fraction = 1
+            left_char = max(
+                0,
+                error["start"] - visible_chars // 2
+            )
 
             text.xview_moveto(
-                fraction
+                left_char / 500
             )
+
+        except Exception:
+            pass
+
+        text.focus_set()
 
         #
         # Listbox同期
