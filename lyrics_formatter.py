@@ -54,7 +54,7 @@ class LyricsFormatter:
 
         self.root = root
         self.root.title(
-            "歌詞改行ツール v1.7.1"
+            "歌詞改行ツール v1.8"
         )
 
         (
