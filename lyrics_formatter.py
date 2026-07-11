@@ -869,6 +869,13 @@ class LyricsFormatter:
             takefocus=0
         )
 
+        text = tk.Text(
+            outer,
+            wrap="none",
+            undo=True,
+            bg="#fcfcfc"
+        )
+
         line_numbers.bind(
             "<Button-1>",
             lambda e, t=text, n=line_numbers:
@@ -879,13 +886,6 @@ class LyricsFormatter:
             "<B1-Motion>",
             lambda e, t=text, n=line_numbers:
                 self.line_number_drag(e, t, n)
-        )
-
-        text = tk.Text(
-            outer,
-            wrap="none",
-            undo=True,
-            bg="#fcfcfc"
         )
 
         y_scroll = tk.Scrollbar(
