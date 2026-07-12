@@ -234,6 +234,49 @@ class LyricsFormatter:
             lambda: self.show_update_result(latest)
         )
 
+    def show_update_result(self, latest):
+
+        if latest is None:
+
+            return
+
+
+        current = APP_VERSION
+
+        latest_version = latest["version"].lstrip("v")
+
+
+        if current == latest_version:
+
+            return
+
+
+        answer = messagebox.askyesno(
+
+            "更新があります",
+
+            f"新しいバージョンがあります。\n\n"
+            f"現在：v{current}\n"
+            f"最新：{latest['version']}\n"
+            f"公開日：{latest['date']}\n\n"
+            "最新版をダウンロードしますか?"
+
+        )
+
+        if answer:
+
+            if latest["download"]:
+
+                webbrowser.open(
+                    latest["download"]
+                )
+
+            else:
+
+                webbrowser.open(
+                    latest["url"]
+                )
+
     def get_app_dir(self):
 
         if getattr(sys, "frozen", False):
