@@ -162,16 +162,9 @@ class LyricsFormatter:
         #
 
         if self.check_update_on_start.get():
-
             self.root.after(
-
                 1000,
-
-                lambda:
-                    self.check_for_updates(
-                        silent=True
-                    )
-
+                self.start_update_check
             )
 
         #
@@ -222,7 +215,24 @@ class LyricsFormatter:
         except Exception:
             pass
         self.root.iconbitmap("icon.ico")
-        
+
+    def start_update_check(self):
+
+        threading.Thread(
+            target=self.check_for_updates_thread,
+            daemon=True
+        ).start()
+
+
+    def check_for_updates_thread(self):
+
+        latest = self.get_latest_release()
+
+        self.root.after(
+            0,
+            lambda: self.show_update_result(latest)
+        )
+
     def get_app_dir(self):
 
         if getattr(sys, "frozen", False):
@@ -378,11 +388,7 @@ class LyricsFormatter:
                 self.sort_by_first_tag.get(
                 ),
             "check_update_on_start":
-                getattr(
-                    self,
-                    "check_update_on_start",
-                    DEFAULT_CHECK_UPDATE_ON_START
-                )
+                self.check_update_on_start.get()
         }
 
         with open(
