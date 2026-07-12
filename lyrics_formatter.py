@@ -2841,9 +2841,10 @@ class TimeTagInspector:
 
             for time_cs, start, end in times:
 
-                tag_text = line[start:end]
+                current_tag = line[start:end]
+
                 tag_index += 1
-                
+
                 if (
                     previous is not None
                     and
@@ -2866,22 +2867,23 @@ class TimeTagInspector:
                         and
                         tag_index == 1
                     ):
+
                         previous = time_cs
-                        previous_tag = tag_text
+                        previous_tag = current_tag
                         continue
 
-        self.errors.append(
-            error
-        )
+                    self.errors.append(
+                        error
+                    )
 
-        self.listbox.insert(
-            tk.END,
-            f"{line_no}行目　{tag_text} ← {previous_tag}"
-        )
+                    self.listbox.insert(
+                        tk.END,
+                        f"{line_no}行目　{current_tag} ← {previous_tag}"
+                    )
 
-        previous = time_cs
-        previous_tag = tag_text
-
+                previous = time_cs
+                previous_tag = current_tag
+                
         #
         # 件数表示
         #
