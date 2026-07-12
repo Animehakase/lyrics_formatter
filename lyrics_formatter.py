@@ -25,7 +25,7 @@ TIME_CAPTURE = re.compile(
 GITHUB_API = ("https://api.github.com/repos/OshinoItsuki/lyrics_formatter/releases/latest")
 SETTINGS_FILE = "settings.json"
 APP_NAME = "歌詞改行ツール"
-APP_VERSION = "1.9"
+APP_VERSION = "1.9.1"
 
 #
 # デフォルト設定
