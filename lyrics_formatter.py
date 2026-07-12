@@ -7,6 +7,7 @@ import tkinter as tk
 import webbrowser
 import urllib.request
 import urllib.error
+import threading
 from tkinter import filedialog
 
 from tkinter import (
