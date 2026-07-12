@@ -26,7 +26,7 @@ TIME_CAPTURE = re.compile(
 GITHUB_API = ("https://api.github.com/repos/OshinoItsuki/lyrics_formatter/releases/latest")
 SETTINGS_FILE = "settings.json"
 APP_NAME = "歌詞改行ツール"
-APP_VERSION = "1.9.3"
+APP_VERSION = "1.9.5"
 
 #
 # デフォルト設定
@@ -2883,7 +2883,7 @@ class TimeTagInspector:
 
                 previous = time_cs
                 previous_tag = current_tag
-                
+
         #
         # 件数表示
         #
