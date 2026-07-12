@@ -5,6 +5,8 @@ import json
 import os
 import tkinter as tk
 import webbrowser
+import urllib.request
+import urllib.error
 from tkinter import filedialog
 
 from tkinter import (
@@ -20,15 +22,18 @@ TIME_CAPTURE = re.compile(
     r'\[(?:\d+\|)?(\d{2}):(\d{2}):(\d{2})\]'
 )
 
+GITHUB_API = ("https://api.github.com/repos/OshinoItsuki/lyrics_formatter/releases/latest")
 SETTINGS_FILE = "settings.json"
+APP_NAME = "歌詞改行ツール"
+APP_VERSION = "1.9"
 
 #
 # デフォルト設定
 #
 
 DEFAULT_THRESHOLD = "00:03:10"
-
 DEFAULT_LINE_COUNT = "2"
+DEFAULT_CHECK_UPDATE_ON_START = True
 
 #
 # 初回起動時のサイズ
@@ -36,7 +41,6 @@ DEFAULT_LINE_COUNT = "2"
 #
 
 DEFAULT_WINDOW_SIZE = "900x700"
-
 DEFAULT_INSPECTOR_SIZE = "220x400"
 
 #
@@ -44,7 +48,6 @@ DEFAULT_INSPECTOR_SIZE = "220x400"
 #
 
 DEFAULT_IGNORE_FIRST_TAG_ERROR = True
-
 DEFAULT_SORT_BY_FIRST_TAG = True
 
 
@@ -54,7 +57,7 @@ class LyricsFormatter:
 
         self.root = root
         self.root.title(
-            "歌詞改行ツール v1.8"
+            f"{APP_NAME} v{APP_VERSION}"
         )
 
         (
@@ -63,7 +66,8 @@ class LyricsFormatter:
             geometry,
             inspector_geometry,
             ignore_first_tag_error,
-            sort_by_first_tag
+            sort_by_first_tag,
+            check_update_on_start
         ) = self.load_settings()
 
         self.sort_by_first_tag = tk.BooleanVar(
@@ -92,6 +96,10 @@ class LyricsFormatter:
 
         self.ignore_first_tag_error = tk.BooleanVar(
             value=ignore_first_tag_error
+        )
+
+        self.check_update_on_start = tk.BooleanVar(
+            value=check_update_on_start
         )
 
         self.areas = []
@@ -148,7 +156,24 @@ class LyricsFormatter:
             "WM_DELETE_WINDOW",
             self.on_close
         )
-        
+
+        #
+        # 起動時更新チェック
+        #
+
+        if self.check_update_on_start.get():
+
+            self.root.after(
+
+                1000,
+
+                lambda:
+                    self.check_for_updates(
+                        silent=True
+                    )
+
+            )
+
         #
         # アイコン設定
         #
@@ -227,7 +252,11 @@ class LyricsFormatter:
                 DEFAULT_IGNORE_FIRST_TAG_ERROR,
 
             "sort_by_first_tag":
-                DEFAULT_SORT_BY_FIRST_TAG
+                DEFAULT_SORT_BY_FIRST_TAG,
+            
+             "check_update_on_start":
+                DEFAULT_CHECK_UPDATE_ON_START
+                       
 
         }
 
@@ -316,6 +345,11 @@ class LyricsFormatter:
             data.get(
                 "sort_by_first_tag",
                 DEFAULT_SORT_BY_FIRST_TAG
+            ),
+
+            data.get(
+                "check_update_on_start",
+                DEFAULT_CHECK_UPDATE_ON_START
             )
 
         )
@@ -343,6 +377,12 @@ class LyricsFormatter:
             "sort_by_first_tag":
                 self.sort_by_first_tag.get(
                 ),
+            "check_update_on_start":
+                getattr(
+                    self,
+                    "check_update_on_start",
+                    DEFAULT_CHECK_UPDATE_ON_START
+                )
         }
 
         with open(
@@ -357,12 +397,123 @@ class LyricsFormatter:
                 ensure_ascii=False,
                 indent=2
             )
-            
+
+    def check_for_updates(
+        self,
+        silent=True
+    ):
+
+        latest = self.get_latest_release()
+
+        #
+        # 通信失敗
+        #
+
+        if latest is None:
+
+            if not silent:
+
+                messagebox.showwarning(
+                    "更新確認",
+                    "更新を確認できませんでした。\n"
+                    "インターネット接続を確認してください。"
+                )
+
+            return
+
+        #
+        # 現在のバージョン
+        #
+
+        current = APP_VERSION
+
+        latest_version = latest["version"].lstrip("v")
+
+        #
+        # 最新
+        #
+
+        if current == latest_version:
+
+            if not silent:
+
+                messagebox.showinfo(
+                    "更新確認",
+                    f"最新版です。\n\n現在：v{current}"
+                )
+
+            return
+
+        #
+        # 新しいバージョン
+        #
+
+        answer = messagebox.askyesno(
+
+            "更新があります",
+
+            f"新しいバージョンがあります。\n\n"
+
+            f"現在：v{current}\n"
+
+            f"最新：{latest['version']}\n"
+
+            f"公開日：{latest['date']}\n\n"
+
+            "最新版をダウンロードしますか?"
+
+        )
+
+        if answer:
+
+            webbrowser.open(
+                latest["url"]
+            )
+
     def on_close(self):
 
         self.save_settings()
 
         self.root.destroy()
+
+    def get_latest_release(self):
+
+        try:
+
+            req = urllib.request.Request(
+                GITHUB_API,
+                headers={
+                    "User-Agent": "LyricsFormatter"
+                }
+            )
+
+            with urllib.request.urlopen(
+                req,
+                timeout=5
+            ) as response:
+
+                data = json.loads(
+                    response.read().decode(
+                        "utf-8"
+                    )
+                )
+
+            return {
+
+                "version":
+                    data["tag_name"],
+
+                "date":
+                    data["published_at"][:10],
+
+                "url":
+                    data["html_url"]
+
+            }
+
+        except Exception:
+
+            return None
 
     def create_menu(self):
 
@@ -504,8 +655,19 @@ class LyricsFormatter:
             command=self.open_readme
         )
 
-        help_menu.add_separator()
 
+        help_menu.add_command(
+
+            label="更新を確認",
+
+            command=lambda:
+                self.check_for_updates(
+                    silent=False
+                )
+        )
+
+        help_menu.add_separator()
+        
         help_menu.add_command(
             label="About",
             command=self.show_about
@@ -3040,23 +3202,6 @@ class SettingsDialog:
                 anchor="w"
             )
 
-        button_row = tk.Frame(
-            main_group
-        )
-
-        button_row.grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="ew",
-            pady=(10,0)
-        )
-
-        button_row.grid_columnconfigure(
-            0,
-            weight=1
-        )
-
         tk.Checkbutton(
             main_group,
             text="最初のタイムタグ順に並べ替える",
@@ -3067,6 +3212,18 @@ class SettingsDialog:
             columnspan=2,
             sticky="w",
             pady=(8,0)
+        )
+
+        tk.Checkbutton(
+            main_group,
+            text="起動時に更新を確認する",
+            variable=self.app.check_update_on_start
+        ).grid(
+            row=3,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(4,0)
         )
 
         #
