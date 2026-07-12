@@ -466,9 +466,25 @@ class LyricsFormatter:
 
         if answer:
 
-            webbrowser.open(
-                latest["url"]
-            )
+            #
+            # ダウンロードURLが取得できた
+            #
+
+            if latest["download"]:
+
+                webbrowser.open(
+                    latest["download"]
+                )
+
+            #
+            # 念のためフォールバック
+            #
+
+            else:
+
+                webbrowser.open(
+                    latest["url"]
+                )
 
     def on_close(self):
 
@@ -498,6 +514,19 @@ class LyricsFormatter:
                     )
                 )
 
+            assets = data.get(
+                "assets",
+                []
+            )
+
+            download_url = None
+
+            if assets:
+
+                download_url = assets[0].get(
+                    "browser_download_url"
+                )
+
             return {
 
                 "version":
@@ -507,7 +536,10 @@ class LyricsFormatter:
                     data["published_at"][:10],
 
                 "url":
-                    data["html_url"]
+                    data["html_url"],
+
+                "download":
+                    download_url
 
             }
 
