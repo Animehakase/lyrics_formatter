@@ -2828,6 +2828,7 @@ class TimeTagInspector:
         )
 
         previous = None
+        previous_tag = ""
 
         for line_no, line in enumerate(
             text.splitlines(),
@@ -2840,6 +2841,7 @@ class TimeTagInspector:
 
             for time_cs, start, end in times:
 
+                tag_text = line[start:end]
                 tag_index += 1
                 
                 if (
@@ -2871,12 +2873,21 @@ class TimeTagInspector:
                         error
                     )
 
-                    self.listbox.insert(
-                        tk.END,
-                        f"{line_no}行目"
-                    )
+                    #
+                    # 該当タイムタグ文字列
+                    #
+
+                    tag_text = line[
+                        start:end
+                    ]
+
+                self.listbox.insert(
+                    tk.END,
+                    f"{line_no}行目　{tag_text} ← {previous_tag}"
+                )
 
                 previous = time_cs
+                previous_tag = tag_text
 
         #
         # 件数表示
