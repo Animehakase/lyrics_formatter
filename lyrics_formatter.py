@@ -2867,27 +2867,20 @@ class TimeTagInspector:
                         tag_index == 1
                     ):
                         previous = time_cs
+                        previous_tag = tag_text
                         continue
 
-                    self.errors.append(
-                        error
-                    )
+        self.errors.append(
+            error
+        )
 
-                    #
-                    # 該当タイムタグ文字列
-                    #
+        self.listbox.insert(
+            tk.END,
+            f"{line_no}行目　{tag_text} ← {previous_tag}"
+        )
 
-                    tag_text = line[
-                        start:end
-                    ]
-
-                self.listbox.insert(
-                    tk.END,
-                    f"{line_no}行目　{tag_text} ← {previous_tag}"
-                )
-
-                previous = time_cs
-                previous_tag = tag_text
+        previous = time_cs
+        previous_tag = tag_text
 
         #
         # 件数表示
