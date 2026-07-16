@@ -1,56 +1,25 @@
+from __future__ import annotations
+
 import ctypes
-import re
-import sys
-import json
 import os
+import sys
+import threading
 import tkinter as tk
 import webbrowser
-import urllib.request
-import urllib.error
-import threading
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 
-from tkinter import (
-    filedialog,
-    messagebox
+from .config import (
+    APP_NAME,
+    APP_VERSION,
+    DEFAULT_INSPECTOR_SIZE,
+    TIME_CAPTURE,
+    TIME_PATTERN,
 )
-
-TIME_PATTERN = re.compile(
-    r'\[(?:\d+\|)?\d{2}:\d{2}:\d{2}\]'
-)
-
-TIME_CAPTURE = re.compile(
-    r'\[(?:\d+\|)?(\d{2}):(\d{2}):(\d{2})\]'
-)
-
-GITHUB_API = ("https://api.github.com/repos/OshinoItsuki/lyrics_formatter/releases/latest")
-SETTINGS_FILE = "settings.json"
-APP_NAME = "歌詞改行ツール"
-APP_VERSION = "1.10.1"
-
-#
-# デフォルト設定
-#
-
-DEFAULT_THRESHOLD = "00:03:10"
-DEFAULT_LINE_COUNT = "2"
-DEFAULT_CHECK_UPDATE_ON_START = True
-
-#
-# 初回起動時のサイズ
-# （位置は起動時に中央へ配置）
-#
-
-DEFAULT_WINDOW_SIZE = "900x700"
-DEFAULT_INSPECTOR_SIZE = "220x400"
-
-#
-# 検査設定
-#
-
-DEFAULT_IGNORE_FIRST_TAG_ERROR = True
-DEFAULT_SORT_BY_FIRST_TAG = True
-
+from .dialogs.settings_dialog import SettingsDialog
+from .dialogs.time_tag_inspector import TimeTagInspector
+from .services.part_extractor import extract_parts as extract_part_names
+from .services.update_service import get_latest_release as fetch_latest_release
+from .settings_store import default_settings, load_settings_data, write_settings
 
 class LyricsFormatter:
 
@@ -68,7 +37,9 @@ class LyricsFormatter:
             inspector_geometry,
             ignore_first_tag_error,
             sort_by_first_tag,
-            check_update_on_start
+            check_update_on_start,
+            part_start_char,
+            part_end_char
         ) = self.load_settings()
 
         self.sort_by_first_tag = tk.BooleanVar(
@@ -101,6 +72,14 @@ class LyricsFormatter:
 
         self.check_update_on_start = tk.BooleanVar(
             value=check_update_on_start
+        )
+
+        self.part_start_char = tk.StringVar(
+            value=part_start_char
+        )
+
+        self.part_end_char = tk.StringVar(
+            value=part_end_char
         )
 
         self.areas = []
@@ -215,7 +194,6 @@ class LyricsFormatter:
 
         except Exception:
             pass
-        self.root.iconbitmap("icon.ico")
 
     def start_update_check(self):
 
@@ -288,165 +266,45 @@ class LyricsFormatter:
 
     def create_default_settings(self):
 
-        data = {
-
-            "threshold":
-                DEFAULT_THRESHOLD,
-
-            "line_count":
-                DEFAULT_LINE_COUNT,
-
-            "window_geometry":
-                DEFAULT_WINDOW_SIZE,
-
-            "inspector_geometry":
-                DEFAULT_INSPECTOR_SIZE,
-
-            "ignore_first_tag_error":
-                DEFAULT_IGNORE_FIRST_TAG_ERROR,
-
-            "sort_by_first_tag":
-                DEFAULT_SORT_BY_FIRST_TAG,
-            
-             "check_update_on_start":
-                DEFAULT_CHECK_UPDATE_ON_START
-                       
-
-        }
-
-        with open(
-            SETTINGS_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                data,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
+        write_settings(
+            default_settings()
+        )
 
     def load_settings(self):
 
-        #
-        # 無ければ作る
-        #
-
-        if not os.path.exists(
-            SETTINGS_FILE
-        ):
-
-            self.create_default_settings()
-
-        #
-        # 読み込み
-        #
-
-        try:
-
-            with open(
-                SETTINGS_FILE,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
-                data = json.load(f)
-
-        except Exception:
-
-            #
-            # 壊れていたら作り直す
-            #
-
-            self.create_default_settings()
-
-            with open(
-                SETTINGS_FILE,
-                "r",
-                encoding="utf-8"
-            ) as f:
-
-                data = json.load(f)
+        data = load_settings_data()
 
         return (
-
-            data.get(
-                "threshold",
-                DEFAULT_THRESHOLD
-            ),
-
-            data.get(
-                "line_count",
-                DEFAULT_LINE_COUNT
-            ),
-
-            data.get(
-                "window_geometry",
-                DEFAULT_WINDOW_SIZE
-            ),
-
-            data.get(
-                "inspector_geometry",
-                DEFAULT_INSPECTOR_SIZE
-            ),
-
-            data.get(
-                "ignore_first_tag_error",
-                DEFAULT_IGNORE_FIRST_TAG_ERROR
-            ),
-
-            data.get(
-                "sort_by_first_tag",
-                DEFAULT_SORT_BY_FIRST_TAG
-            ),
-
-            data.get(
-                "check_update_on_start",
-                DEFAULT_CHECK_UPDATE_ON_START
-            )
-
+            data["threshold"],
+            data["line_count"],
+            data["window_geometry"],
+            data["inspector_geometry"],
+            data["ignore_first_tag_error"],
+            data["sort_by_first_tag"],
+            data["check_update_on_start"],
+            data["part_start_char"],
+            data["part_end_char"]
         )
 
     def save_settings(self):
 
         data = {
-            "threshold":
-                self.threshold_var.get(),
-
-            "line_count":
-                self.line_count_var.get(),
-
-            "window_geometry":
-                self.root.geometry(),
-            "inspector_geometry":
-                getattr(
-                    self,
-                    "inspector_geometry",
-                    DEFAULT_INSPECTOR_SIZE
-                ),
-            "ignore_first_tag_error":
-                self.ignore_first_tag_error.get(
-                ),
-            "sort_by_first_tag":
-                self.sort_by_first_tag.get(
-                ),
-            "check_update_on_start":
-                self.check_update_on_start.get()
+            "threshold": self.threshold_var.get(),
+            "line_count": self.line_count_var.get(),
+            "window_geometry": self.root.geometry(),
+            "inspector_geometry": getattr(
+                self,
+                "inspector_geometry",
+                DEFAULT_INSPECTOR_SIZE
+            ),
+            "ignore_first_tag_error": self.ignore_first_tag_error.get(),
+            "sort_by_first_tag": self.sort_by_first_tag.get(),
+            "check_update_on_start": self.check_update_on_start.get(),
+            "part_start_char": self.part_start_char.get(),
+            "part_end_char": self.part_end_char.get()
         }
 
-        with open(
-            SETTINGS_FILE,
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                data,
-                f,
-                ensure_ascii=False,
-                indent=2
-            )
+        write_settings(data)
 
     def check_for_updates(
         self,
@@ -544,58 +402,7 @@ class LyricsFormatter:
 
     def get_latest_release(self):
 
-        try:
-
-            req = urllib.request.Request(
-                GITHUB_API,
-                headers={
-                    "User-Agent": "LyricsFormatter"
-                }
-            )
-
-            with urllib.request.urlopen(
-                req,
-                timeout=5
-            ) as response:
-
-                data = json.loads(
-                    response.read().decode(
-                        "utf-8"
-                    )
-                )
-
-            assets = data.get(
-                "assets",
-                []
-            )
-
-            download_url = None
-
-            if assets:
-
-                download_url = assets[0].get(
-                    "browser_download_url"
-                )
-
-            return {
-
-                "version":
-                    data["tag_name"],
-
-                "date":
-                    data["published_at"][:10],
-
-                "url":
-                    data["html_url"],
-
-                "download":
-                    download_url
-
-            }
-
-        except Exception:
-
-            return None
+        return fetch_latest_release()
 
     def create_menu(self):
 
@@ -2243,46 +2050,27 @@ class LyricsFormatter:
                 
     def extract_parts(self):
 
-        #
-        # 入力欄から取得
-        #
-
         text = self.input_text.get(
             "1.0",
             "end-1c"
         )
 
-        matches = re.findall(
-            r"\(([^()]+)\)",
-            text
-        )
+        try:
 
-        #
-        # タイムタグを含むカッコ内は除外
-        #
-
-        filtered = [
-
-            item
-
-            for item in matches
-
-            if not TIME_PATTERN.search(
-                item
+            result = extract_part_names(
+                text,
+                self.part_start_char.get(),
+                self.part_end_char.get()
             )
-        ]
 
-        #
-        # 重複削除＋並べ替え
-        #
+        except ValueError as error:
 
-        result = sorted(
-            set(filtered)
-        )
+            messagebox.showerror(
+                "設定エラー",
+                str(error)
+            )
 
-        #
-        # 出力欄を更新
-        #
+            return
 
         self.output_text.delete(
             "1.0",
@@ -2293,10 +2081,6 @@ class LyricsFormatter:
             "1.0",
             "\n".join(result)
         )
-
-        #
-        # 行番号・ハイライト更新
-        #
 
         self.refresh_visuals(
             self.output_text,
@@ -2616,880 +2400,3 @@ class LyricsFormatter:
         )
 
         text.focus_set()
-
-class TimeTagInspector:
-
-    def __init__(
-        self,
-        app
-    ):
-
-        self.app = app
-        self.root = app.root
-
-        self.window = None
-
-        self.status_label = None
-        self.listbox = None
-
-        self.prev_button = None
-        self.next_button = None
-        self.recheck_button = None
-
-        #
-        # 検査結果
-        #
-
-        self.errors = []
-
-        self.current_index = -1
-
-    def show(self):
-
-        #
-        # 既に開いているなら再検査
-        #
-
-        if (
-            self.window
-            and
-            self.window.winfo_exists()
-        ):
-
-            self.window.lift()
-            self.window.focus_force()
-
-            self.inspect()
-
-            return
-
-        self.window = tk.Toplevel(
-            self.root
-        )
-
-        self.window.title(
-            "検査"
-        )
-
-        self.window.protocol(
-            "WM_DELETE_WINDOW",
-            self.close
-        )
-        
-        self.create_widgets()
-
-        #
-        # 前回位置で開く
-        #
-
-        geometry = self.app.inspector_geometry
-
-        #
-        # 初回（サイズだけ保存されている）
-        #
-
-        if "+" not in geometry:
-
-            self.window.geometry(
-                geometry
-            )
-
-            self.app.center_window(
-                self.window
-            )
-
-        else:
-
-            self.window.geometry(
-                geometry
-            )
-
-        self.inspect()
-
-    def create_widgets(self):
-
-        self.status_label = tk.Label(
-            self.window,
-            text="異常件数：0件",
-            anchor="w"
-        )
-
-        self.status_label.pack(
-            fill="x",
-            padx=10,
-            pady=(10, 5)
-        )
-
-        frame = tk.Frame(
-            self.window
-        )
-
-        frame.pack(
-            fill="both",
-            expand=True,
-            padx=10
-        )
-
-        scrollbar = tk.Scrollbar(
-            frame
-        )
-
-        scrollbar.pack(
-            side="right",
-            fill="y"
-        )
-
-        self.listbox = tk.Listbox(
-            frame,
-            activestyle="none"
-        )
-
-        self.listbox.pack(
-            side="left",
-            fill="both",
-            expand=True
-        )
-
-        self.listbox.config(
-            yscrollcommand=scrollbar.set
-        )
-
-        scrollbar.config(
-            command=self.listbox.yview
-        )
-
-        self.listbox.bind(
-            "<<ListboxSelect>>",
-            self.on_listbox_select
-        )
-
-        self.listbox.bind(
-            "<Double-Button-1>",
-            self.on_listbox_double_click
-        )
-
-        self.listbox.bind(
-            "<Return>",
-            self.on_listbox_enter
-        )
-
-        button_frame = tk.Frame(
-            self.window
-        )
-
-        button_frame.pack(
-            fill="x",
-            padx=10,
-            pady=10
-        )
-
-        self.prev_button = tk.Button(
-            button_frame,
-            text="◀ 前へ",
-            state="disabled",
-            command=self.move_prev
-        )
-
-        self.prev_button.pack(
-            side="left",
-            expand=True,
-            fill="x",
-            padx=2
-        )
-
-        self.next_button = tk.Button(
-            button_frame,
-            text="次へ ▶",
-            state="disabled",
-            command=self.move_next
-        )
-
-        self.next_button.pack(
-            side="left",
-            expand=True,
-            fill="x",
-            padx=2
-        )
-
-        bottom = tk.Frame(
-            self.window
-        )
-
-        bottom.pack(
-            fill="x",
-            padx=10,
-            pady=(0, 10)
-        )
-
-        self.recheck_button = tk.Button(
-            bottom,
-            text="検査",
-            state="disabled",
-            command=self.inspect
-        )
-
-        self.recheck_button.pack(
-            side="left",
-            expand=True,
-            fill="x",
-            padx=2
-        )
-
-        tk.Button(
-            bottom,
-            text="閉じる",
-            command=self.close
-        ).pack(
-            side="left",
-            expand=True,
-            fill="x",
-            padx=2
-        )
-
-    def time_to_cs(
-        self,
-        mm,
-        ss,
-        cs
-    ):
-
-        return (
-            int(mm) * 6000
-            +
-            int(ss) * 100
-            +
-            int(cs)
-        )
-
-    def extract_times(
-        self,
-        line
-    ):
-
-        result = []
-
-        for match in TIME_CAPTURE.finditer(line):
-
-            result.append(
-
-                (
-                    self.time_to_cs(
-                        match.group(1),
-                        match.group(2),
-                        match.group(3)
-                    ),
-                    match.start(),
-                    match.end()
-                )
-
-            )
-
-        return result
-        
-    def inspect(self):
-
-        self.errors.clear()
-
-        self.listbox.delete(
-            0,
-            tk.END
-        )
-
-        text = self.app.output_text.get(
-            "1.0",
-            "end-1c"
-        )
-
-        previous = None
-        previous_tag = ""
-
-        for line_no, line in enumerate(
-            text.splitlines(),
-            start=1
-        ):
-
-            times = self.extract_times(line)
-
-            tag_index = 0
-
-            for time_cs, start, end in times:
-
-                current_tag = line[start:end]
-
-                tag_index += 1
-
-                if (
-                    previous is not None
-                    and
-                    time_cs <= previous
-                ):
-
-                    error = {
-                        "line": line_no,
-                        "time": time_cs,
-                        "start": start,
-                        "end": end
-                    }
-
-                    #
-                    # 各行の最初のタイムタグの違反は表示しない
-                    #
-
-                    if (
-                        self.app.ignore_first_tag_error.get()
-                        and
-                        tag_index == 1
-                    ):
-
-                        previous = time_cs
-                        previous_tag = current_tag
-                        continue
-
-                    self.errors.append(
-                        error
-                    )
-
-                    self.listbox.insert(
-                        tk.END,
-                        f"{line_no}行目　{current_tag} ← {previous_tag}"
-                    )
-
-                previous = time_cs
-                previous_tag = current_tag
-
-        #
-        # 件数表示
-        #
-
-        if self.errors:
-
-            self.status_label.config(
-                text=f"⚠ 異常件数：{len(self.errors)}件",
-                fg="red"
-            )
-
-        else:
-
-            self.status_label.config(
-                text="✔ 異常は見つかりませんでした",
-                fg="green"
-            )
-
-        #
-        # ボタン
-        #
-
-        state = (
-            "normal"
-            if self.errors
-            else "disabled"
-
-        )
-
-        self.prev_button.config(
-            state=state
-        )
-
-        self.next_button.config(
-            state=state
-        )
-
-        self.recheck_button.config(
-            state="normal"
-        )
-
-        #
-        # ハイライト更新
-        #
-
-        self.app.inspect_errors = self.errors.copy()
-        self.app.refresh_visuals(
-            self.app.output_text,
-            self.app.areas[1][1]
-        )
-
-        #
-        # 初回選択
-        #
-
-        if self.errors:
-
-            self.current_index = 0
-            self.listbox.selection_clear(
-                0,
-                tk.END
-            )
-            
-            self.listbox.selection_set(0)
-            self.listbox.activate(0)
-            self.listbox.see(0)
-            self.jump_to_current()
-        else:
-            self.current_index = -1
-
-    def move_next(self):
-
-        if not self.errors:
-            return
-
-        self.current_index += 1
-
-        if self.current_index >= len(self.errors):
-            self.current_index = 0
-
-        self.jump_to_current()
-
-
-    def move_prev(self):
-
-        if not self.errors:
-            return
-
-        self.current_index -= 1
-
-        if self.current_index < 0:
-            self.current_index = len(self.errors) - 1
-
-        self.jump_to_current()
-
-
-    def jump_to_current(self):
-
-        if not self.errors:
-            return
-
-        error = self.errors[self.current_index]
-
-        text = self.app.output_text
-
-        index = (
-            f"{error['line']}.0+{error['start']}c"
-        )
-
-        #
-        # カーソル
-        #
-
-        text.mark_set(
-            "insert",
-            index
-        )
-
-        #
-        # 縦スクロール
-        #
-
-        text.see(index)
-
-        #
-        # 横スクロール
-        #
-
-        try:
-
-            #
-            # 現在の幅（文字数）
-            #
-
-            visible_chars = max(
-                20,
-                text.winfo_width() // 9
-            )
-
-            #
-            # 左端を少し前にずらす
-            #
-
-            left_char = max(
-                0,
-                error["start"] - visible_chars // 2
-            )
-
-            text.xview_moveto(
-                left_char / 500
-            )
-
-        except Exception:
-            pass
-
-        text.focus_set()
-
-        #
-        # Listbox同期
-        #
-
-        self.listbox.selection_clear(
-            0,
-            tk.END
-        )
-
-        self.listbox.selection_set(
-            self.current_index
-        )
-
-        self.listbox.activate(
-            self.current_index
-        )
-
-        self.listbox.see(
-            self.current_index
-        )
-
-
-    def on_listbox_select(
-        self,
-        event=None
-    ):
-
-        selection = self.listbox.curselection()
-        if not selection:
-            return
-        self.current_index = selection[0]
-
-
-    def on_listbox_double_click(
-        self,
-        event=None
-    ):
-
-        selection = self.listbox.curselection()
-        if not selection:
-            return
-        self.current_index = selection[0]
-        self.jump_to_current()
-
-
-    def on_listbox_enter(
-        self,
-        event=None
-    ):
-
-        self.on_listbox_double_click()
-        return "break"
-
-    def close(self):
-
-        if (
-            self.window
-            and
-            self.window.winfo_exists()
-        ):
-
-            self.app.inspector_geometry = (
-                self.window.geometry()
-            )
-
-            #
-            # settings.json 更新
-            #
-
-            self.app.save_settings()
-
-            self.window.destroy()
-
-            self.window = None
-
-            self.root.after_idle(
-                self.clear_highlight
-            )
-
-    def clear_highlight(self):
-
-        #
-        # ハイライト解除
-        #
-
-        self.app.inspect_errors.clear()
-
-        self.app.refresh_visuals(
-            self.app.output_text,
-            self.app.areas[1][1]
-        )          
-
-class SettingsDialog:
-
-    def __init__(
-        self,
-        app
-    ):
-
-        self.app = app
-
-        self.root = app.root
-
-        self.window = None
-
-    def show(self):
-
-        #
-        # 既に開いている
-        #
-
-        if (
-            self.window
-            and
-            self.window.winfo_exists()
-        ):
-
-            self.window.lift()
-            self.window.focus_force()
-
-            return
-
-        self.window = tk.Toplevel(
-            self.root
-        )
-
-        self.window.title(
-            "設定"
-        )
-
-        self.window.resizable(
-            False,
-            False
-        )
-
-        self.window.transient(
-            self.root
-        )
-
-        self.window.grab_set()
-
-        #
-        # 変数
-        #
-
-        self.threshold_var = tk.StringVar(
-            value=self.app.threshold_var.get()
-        )
-
-        self.line_count_var = tk.StringVar(
-            value=self.app.line_count_var.get()
-        )
-
-        self.ignore_first_tag_error = tk.BooleanVar(
-            value=self.app.ignore_first_tag_error.get()
-        )
-
-        self.sort_by_first_tag = tk.BooleanVar(
-            value=self.app.sort_by_first_tag.get()
-        )
-
-        #
-        # メインフレーム
-        #
-
-        main = tk.Frame(
-            self.window,
-            padx=15,
-            pady=15
-        )
-
-        main.pack(
-            fill="both",
-            expand=True
-        )
-
-        #
-        # メインウインドウ設定
-        #
-
-        main_group = tk.LabelFrame(
-            main,
-            text="メインウインドウ設定",
-            padx=10,
-            pady=10
-        )
-
-        main_group.pack(
-            fill="x",
-            pady=(0,10)
-        )
-
-        tk.Label(
-            main_group,
-            text="時間差閾値"
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            pady=(0,10)
-        )
-
-        tk.Entry(
-            main_group,
-            textvariable=self.threshold_var,
-            width=10
-        ).grid(
-            row=0,
-            column=1,
-            sticky="w",
-            padx=(10,0),
-            pady=(0,10)
-        )
-
-        tk.Label(
-            main_group,
-            text="改行間隔"
-        ).grid(
-            row=1,
-            column=0,
-            sticky="nw"
-        )
-
-        radio_frame = tk.Frame(
-            main_group
-        )
-
-        radio_frame.grid(
-            row=1,
-            column=1,
-            sticky="w",
-            padx=(10,0)
-        )
-
-        for value in (
-            "2",
-            "3",
-            "4"
-        ):
-
-            tk.Radiobutton(
-                radio_frame,
-                text=f"{value}行",
-                value=value,
-                variable=self.line_count_var
-            ).pack(
-                anchor="w"
-            )
-
-        tk.Checkbutton(
-            main_group,
-            text="最初のタイムタグ順に並べ替える",
-            variable=self.sort_by_first_tag
-        ).grid(
-            row=2,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            pady=(8,0)
-        )
-
-        tk.Checkbutton(
-            main_group,
-            text="起動時に更新を確認する",
-            variable=self.app.check_update_on_start
-        ).grid(
-            row=3,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            pady=(4,0)
-        )
-
-        #
-        # タイムタグ検査設定
-        #
-
-        inspect_group = tk.LabelFrame(
-            main,
-            text="タイムタグ検査設定",
-            padx=10,
-            pady=10
-        )
-
-        inspect_group.pack(
-            fill="x",
-            pady=(0,10)
-        )
-
-        tk.Checkbutton(
-            inspect_group,
-            text="各行の最初のタイムタグの違反は無視する",
-            variable=self.ignore_first_tag_error
-        ).pack(
-            anchor="w"
-        )
-
-        #
-        # ボタン
-        #
-
-        button_frame = tk.Frame(
-            main
-        )
-
-        button_frame.pack(
-            pady=(5,0)
-        )
-
-        tk.Button(
-            button_frame,
-            text="OK",
-            width=10,
-            command=self.apply
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        tk.Button(
-            button_frame,
-            text="キャンセル",
-            width=10,
-            command=self.window.destroy
-        ).pack(
-            side="left",
-            padx=5
-        )
-
-        self.window.update_idletasks()
-
-        self.app.center_window(
-            self.window
-        )
-
-    def apply(self):
-
-        #
-        # 値を反映
-        #
-
-        self.app.threshold_var.set(
-            self.threshold_var.get()
-        )
-
-        self.app.line_count_var.set(
-            self.line_count_var.get()
-        )
-
-        self.app.ignore_first_tag_error.set(
-            self.ignore_first_tag_error.get()
-        )
-
-        self.app.sort_by_first_tag.set(
-            self.sort_by_first_tag.get()
-        )
-        
-        #
-        # JSONへ保存
-        #
-
-        self.app.save_settings()
-
-        #
-        # 閉じる
-        #
-
-        self.window.destroy()
-
-if __name__ == "__main__":
-
-    root = tk.Tk()
-
-    app = LyricsFormatter(
-        root
-    )
-
-    root.mainloop()
-    
