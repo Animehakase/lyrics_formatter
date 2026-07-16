@@ -957,6 +957,17 @@ class LyricsFormatter:
             side="right",
             padx=2
         )
+        
+        tk.Button(
+            bottom_buttons,
+            text="パート分け抽出",
+            command=self.extract_parts,
+            width=18
+        ).pack(
+            side="right",
+            padx=2
+        )
+        
         #
         # 出力エリア
         #
@@ -2229,7 +2240,59 @@ class LyricsFormatter:
                     "end-1c"
                 )
             )
+                
+    def extract_parts(self):
 
+        #
+        # 入力欄から取得
+        #
+
+        text = self.input_text.get(
+            "1.0",
+            "end-1c"
+        )
+
+        #
+        # 半角カッコ内を抽出
+        # 空のカッコと入れ子は対象外
+        #
+
+        matches = re.findall(
+            r"\(([^()]+)\)",
+            text
+        )
+
+        #
+        # 重複削除＋並べ替え
+        #
+
+        result = sorted(
+            set(matches)
+        )
+
+        #
+        # 出力欄を更新
+        #
+
+        self.output_text.delete(
+            "1.0",
+            "end"
+        )
+
+        self.output_text.insert(
+            "1.0",
+            "\n".join(result)
+        )
+
+        #
+        # 行番号・ハイライト更新
+        #
+
+        self.refresh_visuals(
+            self.output_text,
+            self.areas[1][1]
+        )
+    
     def clear_all(self):
 
         self.input_text.delete(
