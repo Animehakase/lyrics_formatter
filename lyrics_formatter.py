@@ -26,7 +26,7 @@ TIME_CAPTURE = re.compile(
 GITHUB_API = ("https://api.github.com/repos/OshinoItsuki/lyrics_formatter/releases/latest")
 SETTINGS_FILE = "settings.json"
 APP_NAME = "歌詞改行ツール"
-APP_VERSION = "1.10"
+APP_VERSION = "1.10.1"
 
 #
 # デフォルト設定
@@ -942,7 +942,7 @@ class LyricsFormatter:
             bottom_buttons,
             text="タイムタグ監視",
             command=self.start_clipboard_monitor,
-            width=10
+            width=11
         ).pack(
             side="right",
             padx=2
@@ -952,7 +952,7 @@ class LyricsFormatter:
             bottom_buttons,
             text="タイムタグ検査",
             command=self.inspector.show,
-            width=10
+            width=11
         ).pack(
             side="right",
             padx=2
@@ -962,7 +962,7 @@ class LyricsFormatter:
             bottom_buttons,
             text="パート分け抽出",
             command=self.extract_parts,
-            width=18
+            width=11
         ).pack(
             side="right",
             padx=2
@@ -2252,22 +2252,32 @@ class LyricsFormatter:
             "end-1c"
         )
 
-        #
-        # 半角カッコ内を抽出
-        # 空のカッコと入れ子は対象外
-        #
-
         matches = re.findall(
             r"\(([^()]+)\)",
             text
         )
 
         #
+        # タイムタグを含むカッコ内は除外
+        #
+
+        filtered = [
+
+            item
+
+            for item in matches
+
+            if not TIME_PATTERN.search(
+                item
+            )
+        ]
+
+        #
         # 重複削除＋並べ替え
         #
 
         result = sorted(
-            set(matches)
+            set(filtered)
         )
 
         #
